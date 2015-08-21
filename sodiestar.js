@@ -44,31 +44,24 @@
  * death/death animation - KINDA DONE
  * lives/restart - KINDA DONE
  * pause game - KINDA DONE
+ *   + make pause menu
  * make borders of the screen roll (change bullets behaviour acordingly) - KINDA DONE
  * make angle of turn a variable? (change teleport and autobrake acordingly) - NO
  * fix teleports - KINDA DONE
  * make shield - KINDA DONE
- * make objects rolling appear on both sides while rolling - MAYBE NOT
+ * make objects rolling appear on both sides while rolling (only the ship does this) - MAYBE NOT
  * 
  */
 
-(function (obj, evType, fn){
-	if (obj.addEventListener){ 
-		obj.addEventListener(evType, fn, false); 
-		return true; 
-	} else if (obj.attachEvent){ 
-		var r = obj.attachEvent("on"+evType, fn); 
-		return r; 
-	} else { 
-		return false; 
-	} 
-})(window, 'load', function(){
+function sodiestar(){
   // game constructor(){
-	var svgns="http://www.w3.org/2000/svg";
+  var svgns="http://www.w3.org/2000/svg";
+  var mydiv=document.getElementById("sodiestar-div");
   var board=document.createElementNS(svgns,"svg");
   var hud=document.createElementNS(svgns,"g");
-	var width=800;
-	var height=600;
+  var width=800;
+  var height=600;
+  var timer=null;
   
   var game=new Object();
   var keyspressed="";
@@ -80,8 +73,9 @@
   var l80OverPI=180/Math.PI;
   
   //TODO: make all the style css-able - NOT LIKELY
-	board.setAttribute("style","position:relative;border:1px solid black;width:"+width+"px;height:"+height+"px;background-color:#eef;margin:0 auto 0 auto;");
-	document.body.appendChild(board);
+  board.setAttribute("style","position:relative;border:1px solid black;width:"+width+"px;height:"+height+"px;background-color:#eef;margin:0 auto 0 auto;");
+  mydiv.appendChild(board);
+  
   var ship = document.createElementNS(svgns,"g");
   //todo: save resources to another file? - NOT LIKELY
   ship.chasis=document.createElementNS(svgns,"path");
@@ -96,7 +90,7 @@
   ship.appendChild(ship.chasis);
   ship.appendChild(ship.cockpit);
   ship.appendChild(ship.shield);
-	board.appendChild(ship);
+  board.appendChild(ship);
   board.appendChild(hud);
   hud.lifes=new Array();
   hud.teleports=new Array();
@@ -123,11 +117,11 @@
   ship.radius=8;
   ship.firedelay=3; //in frames delay between 2 shots
   
-  var txt = document.createElement("div");
-  document.body.appendChild(txt);
+  //var txt = document.createElement("div"); //poor man debugger
+  //document.body.appendChild(txt);
   
   ship.fire=function(){
-    if (ship.fireleft<=0 && ship.isVisible){
+    if (ship.fireleft<=0 && ship.isVisible){ //can shoot? ain't dead?
       bullet=document.createElementNS(svgns,"path");
       bullet.radius=3;
       var x = 2*bullet.radius*Math.cos((ship.angle)* PiOver180);
@@ -177,7 +171,7 @@
       ship.fireleft=ship.firedelay;
       game.bulletsFired++;
     }
-  }
+  }//ship.fire
 
   game.addAsteroid=function(ax, ay, aa, ar){
     var asteroid=document.createElementNS(svgns,"circle");
@@ -231,7 +225,7 @@
     board.insertBefore(asteroid,ship);
     game.asteroids.push(asteroid);
     return asteroid;
-  }
+  }//game.addAsteroid
 
   game.powerUp=function(ax,ay,angle,speed){
     if (Math.random() < game.powerupProbability){
@@ -301,6 +295,7 @@
     hud.lifes.push(littleShip);
     hud.appendChild(littleShip);
     game.lifes++;
+	//this should not go forever
   }
   
   game.removeLife=function(){
@@ -363,7 +358,7 @@
     }else{
       //TODO do something else
       var ac=game.bulletsHit/game.bulletsFired*100;
-      hud.alert("Juego Terminado!\n\nNivel: "+game.level+"\nPrecisión: "+ ac.toFixed(2)+"%\n\nPresiona f5 para reiniciar");
+      hud.alert("Juego Terminado!\n\nNivel: "+game.level+"\n\nPresiona f5 para reiniciar");
     }
   }
   
@@ -379,11 +374,12 @@
     game.bulletsFired=0;
     game.bulletsHit=0;
     game.lifes=0;
+	ship.teleportsLeft=0;
     for (i=0;i<2;i++){
       game.addLife();
+	  game.addTeleport();
     }
-    ship.teleportsLeft=0;//only trough powerups
-    ship.shield.left=0;//only trough powerups
+    ship.shield.left=100;
     hud.updateShield();
     game.level=0;
     game.newLevel();
@@ -433,7 +429,7 @@
       hud.msg.text.setAttribute("y",h/2-5);
       
       hud.msg.setAttribute("transform","translate("+width/2+","+height/2+")");
-      if (time){ //I thoght it could be useful to have a timeout, now not so much
+      if (time){ // this is not used yet
         setTimeout("hud.alert('');", time);
       }
     }
@@ -446,7 +442,6 @@
     hud.updateShield();
   }
   
-  var timer=null;
   //todo: make real loop? - NOT LIKELY
   var tf=function(){//main "loop" every 40ms (25fps)
     if (!game.paused){
@@ -497,7 +492,7 @@
         ship.fire();
       }
       if (ship.shield.auto>=0){ //auto shield
-        ship.shield.auto--; //disabled for testing
+        ship.shield.auto--;
         ship.shield.enable(true);
       }else{
         if (keyspressed.indexOf(":16")!= -1 && ship.shield.left>0 && ship.isVisible){ //shift (shield)
@@ -507,23 +502,23 @@
           ship.shield.enable(false);
         }
       }
-      if (keyspressed.indexOf(":91")!= -1 && ship.teleportsLeft>0 && ship.teleportsframesleft<0 ){ //super (aka windows logo) (teleport)
+      if (keyspressed.indexOf(":88")!= -1 && ship.teleportsLeft>0 && ship.teleportsframesleft<0 ){ //x for teleprort (windows and mac users now can play too!)
         game.useTeleport();
       }
-      if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)
+      if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)F
         keyspressed=keyspressed.replace(":80", "");
         hud.alert("Pausa, presiona 'p' para continuar");
         game.paused=true;
       }
       
       //ship.move(){
-      ship.ctx+=ship.sx;
-      ship.cty+=ship.sy;
-      if(ship.ctx>width)ship.ctx-=width;
-      if(ship.cty>height)ship.cty-=height;
-      if(ship.ctx<0)ship.ctx+=width;
-      if(ship.cty<0)ship.cty+=height;
-      ship.setAttribute("transform","translate("+ship.ctx+","+ship.cty+") rotate("+ship.angle+")");
+	  ship.ctx+=ship.sx;
+	  ship.cty+=ship.sy;
+	  if(ship.ctx>width)ship.ctx-=width;
+	  if(ship.cty>height)ship.cty-=height;
+	  if(ship.ctx<0)ship.ctx+=width;
+	  if(ship.cty<0)ship.cty+=height;
+	  ship.setAttribute("transform","translate("+ship.ctx+","+ship.cty+") rotate("+ship.angle+")");
       //}      
       for (x in game.asteroids){
         game.asteroids[x].move();
@@ -544,22 +539,32 @@
     timer=setTimeout(tf, 45);
   }
   //TODO: make unobtrusive?
-  window.onkeydown=function(evt){
+  
+  board.onkeydown=function(evt){
     keynum=evt.which;
     keyspressed=keyspressed.replace(":"+keynum, "");
     keyspressed+=":"+keynum; //simply pull
-    //txt.innerText=keyspressed;
+    //txt.innerText=keyspressed; //poor man debugger
   }
-  window.onkeyup=function(evt){
+  board.onkeyup=function(evt){
     keynum=evt.which;
     keyspressed=keyspressed.replace(":"+keynum, "");
     //txt.innerText=keyspressed;
   }
-  hud.alert("Flechas Izq, Der, Arr - dirigen la nave\nCtrl - dispara\nShift - escudo\nZ - freno\nMeta - teleport\n\npartida en pausa, presiona 'p' para continuar");
+  
+  board.focus();
+  board.onblur=function(){
+	game.paused=true;
+	hud.alert("Pausa - Foco perdido");
+  };
+  
+  hud.alert("Flechas Izq, Der, Arr - dirigen la nave\nCtrl - dispara\nShift - escudo\nZ - freno\nX - teleport\n\npartida en pausa, presiona 'p' para continuar");
   game.newGame();
   game.paused=true;
-  tf();  
-});
+  tf(); 
+  
+}
+
 
 
 
