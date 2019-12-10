@@ -1,24 +1,24 @@
 /*
- *		sodiestar.js
- *		
- *		Copyright 2011 Franco Bianconi <fbianconi@gmail.com>
- *		
- *		This program is free software; you can redistribute it and/or modify
- *		it under the terms of the GNU General Public License as published by
- *		the Free Software Foundation; either version 2 of the License, or
- *		(at your option) any later version.
- *		
- *		This program is distributed in the hope that it will be useful,
- *		but WITHOUT ANY WARRANTY; without even the implied warranty of
- *		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *		GNU General Public License for more details.
- *		
- *		You should have received a copy of the GNU General Public License
- *		along with this program; if not, write to the Free Software
- *		Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- *		MA 02110-1301, USA.
- *		
- *		
+ *      sodiestar.js
+ *      
+ *      Copyright 2011 Franco Bianconi <fbianconi@gmail.com>
+ *      
+ *      This program is free software; you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation; either version 2 of the License, or
+ *      (at your option) any later version.
+ *      
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *      
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program; if not, write to the Free Software
+ *      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ *      MA 02110-1301, USA.
+ *      
+ *      
  */
 
 /*TODO:
@@ -30,554 +30,568 @@
  * death/death animation - KINDA DONE
  * lives/restart - KINDA DONE
  * pause game - KINDA DONE
- *   + make pause menu
  * make borders of the screen roll (change bullets behaviour acordingly) - KINDA DONE
  * make angle of turn a variable? (change teleport and autobrake acordingly) - NO
  * fix teleports - KINDA DONE
  * make shield - KINDA DONE
- * make objects rolling appear on both sides while rolling (only the ship does this) - MAYBE NOT
+ * make objects rolling appear on both sides while rolling - MAYBE NOT
  * 
  */
 
-function sodiestar(){
-	// game constructor(){
-	var svgns="http://www.w3.org/2000/svg";
-	var mydiv=document.getElementById("sodiestar-div");
-	var board=document.createElementNS(svgns,"svg");
-	var hud=document.createElementNS(svgns,"g");
-	var width=800;
-	var height=600;
-	var timer=null;
-	
-	var game=new Object();
-	var keyspressed="";
-	game.bullets=new Array();
-	game.asteroids=new Array();
-	game.powerups=new Array();
-	game.powerupProbability=0.05;
-	var PiOver180=Math.PI/180;
-	var l80OverPI=180/Math.PI;
-	
-	//TODO: make all the style css-able - NOT LIKELY
-	board.setAttribute("style","position:relative;border:1px solid black;width:"+width+"px;height:"+height+"px;background-color:#eef;margin:0 auto 0 auto;");
-	mydiv.appendChild(board);
-	
-	var ship = document.createElementNS(svgns,"g");
-	//todo: save resources to another file? - NOT LIKELY
-	ship.chasis=document.createElementNS(svgns,"path");
-	ship.chasis.setAttribute("d","m 15,0 -17,-10 2,-3 -15,-2 6,8 -3,7 3,7 -6,8 15,-2 -2,-3 z");
-	ship.chasis.setAttribute("style","fill:#aaf;stroke:#000;stroke-width:1;");
-	ship.cockpit=document.createElementNS(svgns,"path");
-	ship.cockpit.setAttribute("d","m 8,0 -10,-5 0,10 z");
-	ship.cockpit.setAttribute("style","fill:#bde;stroke:#000;stroke-width:1");
-	ship.shield=document.createElementNS(svgns,"circle");
-	ship.shield.setAttribute("r",40);
-	ship.shield.setAttribute("style","position:relative;fill:#048;fill-opacity:.3;stroke:#048;stroke-width:1px;");
-	ship.appendChild(ship.chasis);
-	ship.appendChild(ship.cockpit);
-	ship.appendChild(ship.shield);
-	board.appendChild(ship);
-	board.appendChild(hud);
-	hud.lifes=new Array();
-	hud.teleports=new Array();
-	
-	hud.shieldPlace=document.createElementNS(svgns,"rect");
-	hud.shieldPlace.setAttribute("style","fill:none;stroke:#000;stroke-width:2px;stroke-opacity:.3");
-	hud.shieldPlace.setAttribute("x",width/2-50);
-	hud.shieldPlace.setAttribute("y",height-40);
-	hud.shieldPlace.setAttribute("width",100);
-	hud.shieldPlace.setAttribute("height",30);
-	hud.shieldAmount=document.createElementNS(svgns,"rect");
-	hud.shieldAmount.setAttribute("style","stroke:none;fill:#048;fill-opacity:.3;");
-	hud.shieldAmount.setAttribute("x",width/2-48);
-	hud.shieldAmount.setAttribute("y",height-38);
-	hud.shieldAmount.setAttribute("width",0);//min=0; max=96;
-	hud.shieldAmount.setAttribute("height",26);
-	hud.appendChild(hud.shieldPlace);
-	hud.appendChild(hud.shieldAmount);
-	
-	ship.shield.Max=100; //frames
-	ship.accel=0.24; 
-	ship.teleportsDelay=3; 
-	ship.isVisible=true;
-	ship.radius=8;
-	ship.firedelay=3; //in frames delay between 2 shots
-	
-	//var txt = document.createElement("div"); //poor man debugger
-	//document.body.appendChild(txt);
-	
-	ship.fire=function(){
-		if (ship.fireleft<=0 && ship.isVisible){ //can shoot? ain't dead?
-			bullet=document.createElementNS(svgns,"path");
-			bullet.radius=3;
-			var x = 2*bullet.radius*Math.cos((ship.angle)* PiOver180);
-			var y = 2*bullet.radius*Math.sin((ship.angle)* PiOver180);
-			bullet.setAttribute("d","m 0,0 "+x+","+y);
-			bullet.setAttribute("style","position:relative;stroke:#000000;stroke-width:2px;");
-			//bullet.setAttribute("transform","translate("+bullet.ctx+","+bullet.cty+")");
-			bullet.ctx=ship.ctx;
-			bullet.cty=ship.cty;
-			bullet.angle=ship.angle;
-			bullet.speed=17;
-			bullet.life=Math.min(width,height)*.95/bullet.speed;
-			bullet.move=function(){
-				this.ctx+=this.speed*Math.cos((this.angle)* PiOver180);
-				this.cty+=this.speed*Math.sin((this.angle)* PiOver180);
-				this.setAttribute("transform","translate("+this.ctx+","+this.cty+")");
-				if (this.ctx<0)this.ctx+=width;
-				if (this.cty<0)this.cty+=height;
-				if (this.ctx>width)this.ctx-=width;
-				if (this.cty>height)this.cty-=height;
-				for (x in game.asteroids){ // bullet-asteroid hit check
-					var distance=Math.sqrt(Math.pow((this.ctx-game.asteroids[x].ctx),2)+Math.pow((this.cty-game.asteroids[x].cty),2));
-					if (distance<game.asteroids[x].radius){
-						try{
-							board.removeChild(this);
-						}catch(e){
-							var z=null;
-						} //already removed
-						game.bullets.splice(game.bullets.indexOf(this),1);
-						game.asteroids[x].hit();
-						game.bulletsHit++;
-						return;
-					}
-				}
-				this.life--;
-				if (this.life<=0){ //bullet decay
-					try{
-						board.removeChild(this);
-					}catch(e){
-						var z=null;
-					} //already removed
-					game.bullets.splice(game.bullets.indexOf(this),1);
-				}
-			}
-			board.insertBefore(bullet,ship);
-			game.bullets.push(bullet);
-			ship.fireleft=ship.firedelay;
-			game.bulletsFired++;
-		}
-	}//ship.fire
+// game constructor(){
+const svgns="http://www.w3.org/2000/svg";
 
-	game.addAsteroid=function(ax, ay, aa, ar){
-		var asteroid=document.createElementNS(svgns,"circle");
-		asteroid.radius=(ar?ar:40);
-		asteroid.ctx=(ax?ax:Math.random()*width);
-		asteroid.cty=(ay?ay:Math.random()*height);
-		asteroid.angle=(aa?aa:Math.random()*360);
-		asteroid.speed=Math.random()*10; //maxspeed=10
-		asteroid.setAttribute("r",asteroid.radius);
-		asteroid.setAttribute("style","position:relative;fill:#987;stroke:#000000;stroke-width:1px;");
-		asteroid.setAttribute("transform","translate("+asteroid.ctx+","+asteroid.cty+")");
-		asteroid.move=function(){
-			this.ctx+=this.speed*Math.cos((this.angle)* PiOver180);
-			this.cty+=this.speed*Math.sin((this.angle)* PiOver180);
-			if (this.ctx<0)this.ctx+=width;
-			if (this.cty<0)this.cty+=height;
-			if (this.ctx>width)this.ctx-=width;
-			if (this.cty>height)this.cty-=height;
-			this.setAttribute("transform","translate("+this.ctx+","+this.cty+")");
-			if (ship.isVisible){
-				var distance=Math.sqrt(Math.pow((ship.ctx-this.ctx),2)+Math.pow((ship.cty-this.cty),2));
-				if (distance<(this.radius+ship.radius)){ //ship crash
-					this.hit();
-					if (ship.shield.enabled!=true){
-						game.removeLife();
-					}
-				}
-			}
-		}
-		asteroid.hit=function(){
-			this.radius*=.6;
-			game.powerUp(this.ctx,this.cty,this.angle, this.speed);
-			if (this.radius<10){
-				try{
-					board.removeChild(this);
-				}catch(e){
-					var z=null;
-				} //already removed
-				game.asteroids.splice(game.asteroids.indexOf(this),1);
-				if (game.asteroids.length==0){
-					//txt.innerText="Level Cleared - acuracy : "+(game.bulletsHit/game.bulletsFired*100)+"%";
-					setTimeout(game.newLevel, 2000);
-				}
-			}else{
-				this.setAttribute("r",this.radius);
-				var angle=this.angle;
-				this.angle=(angle+Math.random()*180)-90;
-				game.addAsteroid(this.ctx,this.cty,(angle+Math.random()*180)-90,this.radius);
-			}
-		}
-		board.insertBefore(asteroid,ship);
-		game.asteroids.push(asteroid);
-		return asteroid;
-	}//game.addAsteroid
+var width=800;
+var height=600;
 
-	game.powerUp=function(ax,ay,angle,speed){
-		if (Math.random() < game.powerupProbability){
-			var item=Math.random();
-			var pup=null;
-			//TODO:fix probabilities
-			if (item<.2){//life
-				pup=ship.chasis.cloneNode();
-				pup.setAttribute("style","fill:#000;stroke:none;fill-opacity:.3");
-				pup.life=100;//frames
-				pup.func=game.addLife;
-			}else if (item<.6){//shield
-				pup=document.createElementNS(svgns,"circle");
-				pup.setAttribute("style","fill:#048;fill-opacity:.3;stroke:#048;stroke-width:2px;");
-				pup.setAttribute("r","20");
-				pup.func=function(){
-					ship.shield.left+=40;
-					hud.updateShield();
-				}
-				pup.life=150;//frames
-			}else{//teleport
-				pup=ship.chasis.cloneNode();
-				pup.setAttribute("style","fill:none;stroke:#000;stroke-width:2;stroke-opacity:.3");
-				pup.life=80;//frames
-				pup.func=game.addTeleport;
-			}
-			pup.ctx=ax;
-			pup.cty=ay;
-			pup.angle=angle;
-			pup.speed=speed;
-			pup.radius=20;
-			pup.setAttribute("transform","translate("+pup.ctx+","+pup.cty+") rotate(270) scale(.75)");
-			pup.move=function(){
-				this.ctx+=this.speed*Math.cos((this.angle)* PiOver180);
-				this.cty+=this.speed*Math.sin((this.angle)* PiOver180);
-				if (this.ctx<0)this.ctx+=width;
-				if (this.cty<0)this.cty+=height;
-				if (this.ctx>width)this.ctx-=width;
-				if (this.cty>height)this.cty-=height;
-				this.setAttribute("transform","translate("+this.ctx+","+this.cty+") rotate(270) scale(.75)");
-				if (ship.isVisible){
-					var distance=Math.sqrt(Math.pow((ship.ctx-this.ctx),2)+Math.pow((ship.cty-this.cty),2));
-					if (distance<this.radius){
-						this.life=0;
-						this.func();
-					}
-				}
-				this.life--;
-				if (this.life<=0){ //powerup decay
-					try{
-						board.removeChild(this);
-					}catch(e){
-						var z=null;
-					} //already removed
-					game.powerups.splice(game.powerups.indexOf(this),1);
-				}
-			}
-			game.powerups.push(pup);
-			board.insertBefore(pup,ship);
-		}
-	}
+//TODO: recompute size 
 
-	game.addLife=function(){
-		var littleShip=ship.chasis.cloneNode();
-		littleShip.setAttribute("style","fill:#000;stroke:none;fill-opacity:.3");
-		littleShip.setAttribute("transform","translate("+(width-20 -hud.lifes.length*40)+","+(height-20)+") rotate(270)");
-		hud.lifes.push(littleShip);
-		hud.appendChild(littleShip);
-		game.lifes++;
-		//this should not go forever
-	}
-	
-	game.removeLife=function(){
-		//TODO: animate death
-		ship.isVisible=false;
-		ship.setAttribute("style","fill-opacity:0;stroke-opacity:0");
-		setTimeout(game.startLife, 2000);
-		var littleShip=hud.lifes.pop();
-		try{
-			hud.removeChild(littleShip);
-		}catch (e){
-			var z=null;
-		}
-		game.lifes--;
-	}
-	
-	game.addTeleport = function(){
-		//TODO draw a real teleport icon
-		var tele=ship.chasis.cloneNode();
-		tele.setAttribute("style","fill:none;stroke:#000;stroke-width:2");
-		tele.setAttribute("transform","translate("+(20+hud.teleports.length*40)+","+(height-20)+") rotate(270)");
-		hud.teleports.push(tele);
-		hud.appendChild(tele);
-		ship.teleportsLeft++;
-	}
-	
-	game.useTeleport = function(){
-		ship.teleportsframesleft=ship.teleportsDelay;
-		ship.sx=0;
-		ship.sy=0;
-		ship.ctx=Math.random()*width;
-		ship.cty=Math.random()*height;
-		ship.angle=Math.round(Math.random()*23)*15;
-		var tele=hud.teleports.pop();
-		ship.shield.auto=5;
-		try{
-			hud.removeChild(tele);
-		}catch (e){
-			var z=null;
-		}
-		ship.teleportsLeft--;
-	}
-	
-	game.startLife=function(){
-		if(game.lifes>=0){
-			game.paused=false;
-			ship.shield.auto=ship.shield.Max/2;
-			ship.shield.enabled=true;
-			ship.radius=40;
-			ship.ctx=width/2; //center x coord (pixels)
-			ship.cty=height/2; //center y coord (pixels)
-			ship.sx=0; //speed in x (pixels each frame)
-			ship.sy=0; //speed in y (pixels each frame)
-			ship.angle=270; //angle of the ship (plus 180 degrees)
-			ship.teleportsframesleft=0; 
-			ship.fireleft=0; //delay counter 0 or less means you can fire again
-			ship.setAttribute("style","fill-opacity:1;stroke-opacity:1");
-			ship.setAttribute("transform","translate("+ship.ctx+","+ship.cty+") rotate("+ship.angle+")");
-			ship.isVisible=true;
-		}else{
-			//TODO do something else
-			var ac=game.bulletsHit/game.bulletsFired*100;
-			hud.alert("Juego Terminado!\n\nNivel: "+game.level+"\n\nPresiona f5 para reiniciar");
-		}
-	}
-	
-	game.newLevel= function(){
-		game.level++;
-		ship.shield.auto=5;
-		for (i=0;i<game.level;i++){
-			game.addAsteroid();
-		}
-	}
-		
-	game.newGame=function(){
-		game.bulletsFired=0;
-		game.bulletsHit=0;
-		game.lifes=0;
-		ship.teleportsLeft=0;
-		for (i=0;i<2;i++){
-			game.addLife();
-			game.addTeleport();
-		}
-		ship.shield.left=100;
-		hud.updateShield();
-		game.level=0;
-		game.newLevel();
-		game.startLife();
-	}
-	
-	hud.updateShield=function(){
-		if (ship.shield.left>ship.shield.Max)ship.shield.left=ship.shield.Max;
-		hud.shieldAmount.setAttribute("width",ship.shield.left/ship.shield.Max*96);//min=0; max=96;
-	}
-	
-	hud.alert=function(message, time){
-		if (message=="" && hud.msg != undefined){
-			hud.removeChild(hud.msg);
-			hud.msg=null;
-		}else{
-			if (hud.msg != undefined){
-				hud.removeChild(hud.msg);
-				hud.msg=null;
-			}
-			hud.msg=document.createElementNS(svgns,"g");
-			hud.msg.rect=document.createElementNS(svgns,"rect");
-			hud.msg.rect.setAttribute("style","fill:#000;fill-opacity:.7");
-			
-			hud.msg.text=document.createElementNS(svgns,"text");
-			hud.msg.text.setAttribute("style","stroke:#none;fill:#fff");
-			hud.msg.appendChild(hud.msg.rect);
-			hud.msg.appendChild(hud.msg.text);
-			hud.appendChild(hud.msg);
-			var mySplit = message.split("\n");
-			if (mySplit.length==1){
-				hud.msg.text.textContent=message;
-			}else{
-				for (i in mySplit){
-					var tspan=document.createElementNS(svgns,"tspan");
-					tspan.textContent=mySplit[i];
-					hud.msg.text.appendChild(tspan);//we have to show it to know how much space it takes
-					var ww=tspan.offsetWidth;
-					if (isNaN(ww)){
-							ww=tspan.getBoundingClientRect().width;
-					}
-					var hh=tspan.offsetHeight;
-					if (isNaN(hh)){
-							hh=tspan.getBoundingClientRect().height;
-					}
-					tspan.setAttribute("y",hh*i-hh*mySplit.length/2+14);//I wish there was a better way to do this
-					tspan.setAttribute("x",ww/-2);
-				}
-			}
-			var w = hud.msg.text.offsetWidth;
-			if (isNaN(w)){
-				w=hud.msg.text.getBoundingClientRect().width;
-			}
-			var h = hud.msg.text.offsetHeight;
-			if (isNaN(h)){
-				h=hud.msg.text.getBoundingClientRect().height;
-			}
+(function (obj, evType, fn){
+	if (obj.addEventListener){ 
+		obj.addEventListener(evType, fn, false); 
+		return true; 
+	} else if (obj.attachEvent){ 
+		var r = obj.attachEvent("on"+evType, fn); 
+		return r; 
+	} else { 
+		return false; 
+	} 
+})(window, 'load', function(){
+    width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);    
 
-			hud.msg.rect.setAttribute("x",w/-2-10);//and this
-			hud.msg.rect.setAttribute("y",h/-2-5);
-			hud.msg.rect.setAttribute("width",w+20);
-			hud.msg.rect.setAttribute("height",h+10);
-			hud.msg.text.setAttribute("x",w/-2);
-			hud.msg.text.setAttribute("y",h/2-5);
-			
-			hud.msg.setAttribute("transform","translate("+width/2+","+height/2+")");
-			if (time){ // this is not used yet
-				setTimeout("hud.alert('');", time);
-			}
-		}
-	}
+    var game=new Game();
+    window.game=game
 
-	ship.shield.enable=function(val){
-		ship.shield.enabled=val;
-		ship.radius=(val?40:8);
-		ship.shield.setAttribute("style","position:relative;fill:#048;fill-opacity:"+(val?.3:0)+";stroke:#048;stroke-width:1px;stroke-opacity:"+(val?1:0));
-		hud.updateShield();
-	}
-	
-	//todo: make real loop? - NOT LIKELY
-	var tf=function(){//main "loop" every 40ms (25fps)
-		if (!game.paused){
-			//general delays
-			ship.fireleft--;
-			ship.teleportsframesleft--;
-			
-			if (keyspressed.indexOf(":90")!= -1 ){ //z (auto brakes)
-				keyspressed=keyspressed.replace(":37x", "");//auto-left
-				keyspressed=keyspressed.replace(":38x", "");//auto-up
-				keyspressed=keyspressed.replace(":39x", "");//auto-right
-				if (Math.abs(ship.sx)<ship.accel && Math.abs(ship.sy)<ship.accel){
-					ship.sx=0;
-					ship.sy=0;
-					//otherwise it'll never stop, yes I cheated
-				}else{
-					var advAngle=(Math.atan2(ship.sy,ship.sx)*l80OverPI);
-					if (advAngle<0)advAngle+=360;
-					var diff = advAngle-ship.angle;
-					if (diff<0)diff+=360;
-					if (diff>165&&diff<195){
-						keyspressed+=":38x";//auto-up
-					}else if (diff<=165){
-						keyspressed+=":37x";//auto-left
-					}else if (diff>=195){
-						keyspressed+=":39x";//auto-right
-					}
-				}
-			}else{ //its a pulsator
-				keyspressed=keyspressed.replace(":37x", "");//left
-				keyspressed=keyspressed.replace(":38x", "");//up
-				keyspressed=keyspressed.replace(":39x", "");//right
-				keyspressed=keyspressed.replace("x", "");//auto-cleanup-if-you-pressed-and-released-some-keys-when-trying-to-auto-break
-			}
-			if (keyspressed.indexOf(":37")!= -1 ){ //left
-				ship.angle-=15;
-				if (ship.angle<0) ship.angle=360-15;
-			}
-			if (keyspressed.indexOf(":39")!= -1 ){ //right
-				ship.angle+=15;
-				if (ship.angle==360) ship.angle=0;
-			}
-			if (keyspressed.indexOf(":38")!= -1 ){ //up
-				ship.sx+=ship.accel*Math.cos((ship.angle)* PiOver180);
-				ship.sy+=ship.accel*Math.sin((ship.angle)* PiOver180);
-			}
-			if (keyspressed.indexOf(":17")!= -1 ){ //ctrl (shot)
-				ship.fire();
-			}
-			if (ship.shield.auto>=0){ //auto shield
-				ship.shield.auto--;
-				ship.shield.enable(true);
-			}else{
-				if (keyspressed.indexOf(":16")!= -1 && ship.shield.left>0 && ship.isVisible){ //shift (shield)
-					ship.shield.left--;
-					ship.shield.enable(true);
-				}else{ //its a pulsator
-					ship.shield.enable(false);
-				}
-			}
-			if (keyspressed.indexOf(":88")!= -1 && ship.teleportsLeft>0 && ship.teleportsframesleft<0 ){ //x for teleprort (windows and mac users now can play too!)
-				game.useTeleport();
-			}
-			if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)F
-				keyspressed=keyspressed.replace(":80", "");
-				hud.alert("Pausa, presiona 'p' para continuar");
-				game.paused=true;
-			}
-			
-			//ship.move(){
-			ship.ctx+=ship.sx;
-			ship.cty+=ship.sy;
-			if(ship.ctx>width)ship.ctx-=width;
-			if(ship.cty>height)ship.cty-=height;
-			if(ship.ctx<0)ship.ctx+=width;
-			if(ship.cty<0)ship.cty+=height;
-			ship.setAttribute("transform","translate("+ship.ctx+","+ship.cty+") rotate("+ship.angle+")");
-			//}			
-			for (x in game.asteroids){
-				game.asteroids[x].move();
-			}
-			for (i in game.bullets){
-				game.bullets[i].move();
-			}
-			for (i in game.powerups){
-				game.powerups[i].move();
-			}
-		}else{
-			if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)
-				keyspressed=keyspressed.replace(":80", "");
-				game.paused=false;
-				hud.alert("");
-			}
-		}
-		timer=setTimeout(tf, 45);
-	}
-	//TODO: make unobtrusive?
-	//event bubble can't be prevented; input is the only way
-	var input = document.createElement("input");
-	input.type = "text";
-	mydiv.appendChild(input);
-	input.style.opacity=0;
-	input.style.position="absolute";
-	input.onchange=function(){input.value="";}
-	input.focus();
-	
-	input.onkeydown=function(evt){
-		evt = evt || window.event;
-		keynum=evt.which;
-		keyspressed=keyspressed.replace(":"+keynum, "");
-		keyspressed+=":"+keynum; //simply pull
-		//txt.innerText=keyspressed; //poor man debugger
-	}
-	
-	input.onkeyup=function(evt){
-		keynum=evt.which;
-		keyspressed=keyspressed.replace(":"+keynum, "");
-		//txt.innerText=keyspressed;
-	}
-	
-	input.onblur=function(){
-		game.paused=true;
-		hud.alert("Pausa - Foco perdido \npresione 'p' para continuar");
-	};
-	board.onclick=function(){input.focus();}
-	
-	hud.alert("Flechas Izq, Der, Arr - dirigen la nave\nCtrl - dispara\nShift - escudo\nZ - freno\nX - teleport\n\npartida en pausa, presiona 'p' para continuar");
-	game.newGame();
-	game.paused=true;
-	tf(); 
-	
+    var keyspressed="";
+    
+    //TODO: make all the style css-able
+    game.board.setAttribute("class", "board")
+    game.board.setAttribute("style","width:"+width+"px;height:"+height+"px;");
+	document.body.appendChild(game.board);
+    game.ship = document.createElementNS(svgns,"g");
+    
+    //todo: save resources to another file? - NOT LIKELY
+    game.ship.chasis=document.createElementNS(svgns,"path");
+    game.ship.chasis.setAttribute("d","m 15,0 -17,-10 2,-3 -15,-2 6,8 -3,7 3,7 -6,8 15,-2 -2,-3 z");
+    game.ship.chasis.setAttribute("class","chasis");
+    game.ship.cockpit=document.createElementNS(svgns,"path");
+    game.ship.cockpit.setAttribute("d","m 8,0 -10,-5 0,10 z");
+    game.ship.cockpit.setAttribute("class","cockpit");
+    game.ship.shield=document.createElementNS(svgns,"circle");
+    game.ship.shield.setAttribute("r",40);
+    game.ship.shield.setAttribute("class", "shield");
+    game.ship.appendChild(game.ship.chasis);
+    game.ship.appendChild(game.ship.cockpit);
+    game.ship.appendChild(game.ship.shield);
+
+    // window.ship=game.ship
+    
+	game.board.appendChild(game.ship);
+    game.board.appendChild(game.hud);
+    
+    game.hud.lifes=new Array();
+    game.hud.teleports=new Array();
+    
+    game.hud.shieldPlace=document.createElementNS(svgns,"rect");
+    game.hud.shieldPlace.setAttribute("class","shieldPlace");
+    game.hud.shieldPlace.setAttribute("x",width/2-50);
+    game.hud.shieldPlace.setAttribute("y",height-40);
+    game.hud.shieldPlace.setAttribute("width",100);
+    game.hud.shieldPlace.setAttribute("height",30);
+    game.hud.shieldAmount=document.createElementNS(svgns,"rect");
+    game.hud.shieldAmount.setAttribute("class","shieldAmount");
+    game.hud.shieldAmount.setAttribute("x",width/2-48);
+    game.hud.shieldAmount.setAttribute("y",height-38);
+    game.hud.shieldAmount.setAttribute("width",0);//min=0; max=96;
+    game.hud.shieldAmount.setAttribute("height",26);
+    game.hud.appendChild(game.hud.shieldPlace);
+    game.hud.appendChild(game.hud.shieldAmount);
+    
+    game.ship.shield.Max=100; //frames
+    game.ship.accel=0.24; 
+    game.ship.teleportsDelay=3; 
+    game.ship.isVisible=true;
+    game.ship.radius=8;
+    game.ship.firedelay=3; //in frames delay between 2 shots
+    
+    var txt = document.createElement("div");
+    document.body.appendChild(txt);
+    
+    game.ship.fire=function(){
+        if (game.ship.fireleft<=0 && game.ship.isVisible){
+            let bullet=document.createElementNS(svgns,"path");
+            bullet.radius=3;
+            var x = 2*bullet.radius*Math.cos((game.ship.angle)* (Math.PI/180));
+            var y = 2*bullet.radius*Math.sin((game.ship.angle)* (Math.PI/180));
+            bullet.setAttribute("d","m 0,0 "+x+","+y);
+            bullet.setAttribute("class","bullet");
+            bullet.ctx=game.ship.ctx;
+            bullet.cty=game.ship.cty;
+            bullet.setAttribute("transform","translate("+bullet.ctx+","+bullet.cty+")");
+            bullet.angle=game.ship.angle;
+            bullet.speed=20;
+            bullet.life=Math.min(width,height)*.95/20;
+            bullet.move=function(){
+                this.ctx+=this.speed*Math.cos((this.angle)* (Math.PI/180));
+                this.cty+=this.speed*Math.sin((this.angle)* (Math.PI/180));
+                this.setAttribute("transform","translate("+this.ctx+","+this.cty+")");
+                if (this.ctx<0)this.ctx+=width;
+                if (this.cty<0)this.cty+=height;
+                if (this.ctx>width)this.ctx-=width;
+                if (this.cty>height)this.cty-=height;
+                for (x in game.asteroids){ // bullet-asteroid hit check
+                    var distance=Math.sqrt(Math.pow((this.ctx-game.asteroids[x].ctx),2)+Math.pow((this.cty-game.asteroids[x].cty),2));
+                    if (distance<game.asteroids[x].radius){
+                        try{
+                            game.board.removeChild(this);
+                        }catch(e){
+                            var z=null;
+                        } //already removed
+                        game.bullets.splice(game.bullets.indexOf(this),1);
+                        game.asteroids[x].hit();
+                        game.bulletsHit++;
+                        return;
+                    }
+                }
+                this.life--;
+                if (this.life<=0){ //bullet decay
+                    try{
+                        game.board.removeChild(this);
+                    }catch(e){
+                        var z=null;
+                    } //already removed
+                    game.bullets.splice(game.bullets.indexOf(this),1);
+                }
+            }
+            game.board.insertBefore(bullet,game.ship);
+            game.bullets.push(bullet);
+            game.ship.fireleft=game.ship.firedelay;
+            game.bulletsFired++;
+        }
+    }
+
+    game.hud.updateShield=function(){
+        if (game.ship.shield.left>game.ship.shield.Max)game.ship.shield.left=game.ship.shield.Max;
+        game.hud.shieldAmount.setAttribute("width",game.ship.shield.left/game.ship.shield.Max*96);//min=0; max=96;
+    }
+    
+    game.hud.alert=function(message, time){
+        if (message==""){
+            try{
+                game.hud.removeChild(game.hud.msg);
+            }catch(e){}
+        }else{
+            game.hud.msg=document.createElementNS(svgns,"g");
+            game.hud.msg.rect=document.createElementNS(svgns,"rect");
+            game.hud.msg.rect.setAttribute("style","fill:#000;fill-opacity:.7");
+            
+            game.hud.msg.text=document.createElementNS(svgns,"text");
+            game.hud.msg.text.setAttribute("style","stroke:#none;fill:#fff");
+            game.hud.msg.appendChild(game.hud.msg.rect);
+            game.hud.msg.appendChild(game.hud.msg.text);
+            game.hud.appendChild(game.hud.msg);
+            var mySplit = message.split("\n");
+            if (mySplit.length==1){
+                game.hud.msg.text.textContent=message;
+            }else{
+                for (let i in mySplit){
+                    let tspan=document.createElementNS(svgns,"tspan");
+                    tspan.textContent=mySplit[i];
+                    game.hud.msg.text.appendChild(tspan);                    
+                    // let ww=tspan.offsetWidth;
+                    // let hh=tspan.offsetHeight;
+                    var ww=350;
+                    var hh=15
+                    tspan.setAttribute("y",hh*i-hh*mySplit.length/2+14);
+                    tspan.setAttribute("x",ww/-2);
+                }
+            }
+            // var w = hud.msg.text.offsetWidth;
+            // var h = hud.msg.text.offsetHeight;
+            var w=350;
+            var h=150;
+
+            game.hud.msg.rect.setAttribute("x",w/-2-10);//and this
+            game.hud.msg.rect.setAttribute("y",h/-2-5);
+            game.hud.msg.rect.setAttribute("width",w+20);
+            game.hud.msg.rect.setAttribute("height",h+10);
+            game.hud.msg.text.setAttribute("x",w/-2);
+            game.hud.msg.text.setAttribute("y",h/2-5);
+            
+            game.hud.msg.setAttribute("transform","translate("+width/2+","+height/2+")");
+            if (time){ //I thoght it could be useful to have a timeout, now not so much
+                window.setTimeout("hud.alert('');", time);
+            }
+        }
+    }
+
+    game.ship.shield.enable=function(val){
+        game.ship.shield.enabled=val;
+        game.ship.radius=(val?40:8);
+        game.ship.shield.setAttribute("style","position:relative;fill:#048;fill-opacity:"+(val?.3:0)+";stroke:#048;stroke-width:1px;stroke-opacity:"+(val?1:0));
+        game.hud.updateShield();
+    }
+    
+    var timer=null;
+    //todo: make real loop? - NOT LIKELY
+    var tf=function(){//main "loop" every 40ms (25fps)
+        if (!game.paused){
+            //general delays
+            game.ship.fireleft--;
+            game.ship.teleportsframesleft--;
+            if (game.wait>0) game.wait--;
+            
+            if (keyspressed.indexOf(":90")!= -1 ){ //z (auto brakes)
+                keyspressed=keyspressed.replace(":37x", "");//auto-left
+                keyspressed=keyspressed.replace(":38x", "");//auto-up
+                keyspressed=keyspressed.replace(":39x", "");//auto-right
+                if (Math.abs(game.ship.sx)<game.ship.accel && Math.abs(game.ship.sy)<game.ship.accel){
+                    game.ship.sx=0;
+                    game.ship.sy=0;
+                    //otherwise it'll never stop, yes I cheated
+                }else{
+                    var advAngle=(Math.atan2(game.ship.sy,game.ship.sx)*(180/Math.PI));
+                    if (advAngle<0)advAngle+=360;
+                    var diff = advAngle-game.ship.angle;
+                    if (diff<0)diff+=360;
+                    if (diff>165&&diff<195){
+                        keyspressed+=":38x";//auto-up
+                    }else if (diff<=165){
+                        keyspressed+=":37x";//auto-left
+                    }else if (diff>=195){
+                        keyspressed+=":39x";//auto-right
+                    }
+                }
+            }else{ //its a pulsator
+                keyspressed=keyspressed.replace(":37x", "");//left
+                keyspressed=keyspressed.replace(":38x", "");//up
+                keyspressed=keyspressed.replace(":39x", "");//right
+                keyspressed=keyspressed.replace("x", "");//auto-cleanup-if-you-pressed-and-released-some-keys-when-trying-to-auto-break
+            }
+            if (keyspressed.indexOf(":37")!= -1 ){ //left
+                game.ship.angle-=15;
+                if (game.ship.angle<0) game.ship.angle=360-15;
+            }
+            if (keyspressed.indexOf(":39")!= -1 ){ //right
+                game.ship.angle+=15;
+                if (game.ship.angle==360) game.ship.angle=0;
+            }
+            if (keyspressed.indexOf(":38")!= -1 ){ //up
+                game.ship.sx+=game.ship.accel*Math.cos((game.ship.angle)* (Math.PI/180));
+                game.ship.sy+=game.ship.accel*Math.sin((game.ship.angle)* (Math.PI/180));
+            }
+            if (keyspressed.indexOf(":17")!= -1 ){ //ctrl (shot)
+                game.ship.fire();
+            }
+            if (game.ship.shield.auto>=0){ //auto shield
+                game.ship.shield.auto--; //disabled for testing
+                game.ship.shield.enable(true);
+            }else{
+                if (keyspressed.indexOf(":16")!= -1 && game.ship.shield.left>0 && game.ship.isVisible){ //shift (shield)
+                    game.ship.shield.left--;
+                    game.ship.shield.enable(true);
+                }else{ //its a pulsator
+                    game.ship.shield.enable(false);
+                }
+            }
+            if (keyspressed.indexOf(":91")!= -1 && game.ship.teleportsLeft>0 && game.ship.teleportsframesleft<0 ){ //super (aka windows logo) (teleport)
+                game.useTeleport();
+            }
+            if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)
+                keyspressed=keyspressed.replace(":80", "");
+                game.hud.alert("Pausa, presiona 'p' para continuar");
+                game.paused=true;
+            }
+            
+            //ship.move(){
+            game.ship.ctx+=game.ship.sx;
+            game.ship.cty+=game.ship.sy;
+            if(game.ship.ctx>width)game.ship.ctx-=width;
+            if(game.ship.cty>height)game.ship.cty-=height;
+            if(game.ship.ctx<0)game.ship.ctx+=width;
+            if(game.ship.cty<0)game.ship.cty+=height;
+            game.ship.setAttribute("transform","translate("+game.ship.ctx+","+game.ship.cty+") rotate("+game.ship.angle+")");
+            //}      
+            for (let x in game.asteroids){
+                game.asteroids[x].move();
+            }
+            for (let i in game.bullets){
+                game.bullets[i].move();
+            }
+            for (let i in game.powerups){
+                game.powerups[i].move();
+            }
+        }else{
+            if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)
+                keyspressed=keyspressed.replace(":80", "");
+                game.paused=false;
+                game.hud.alert("");
+            }
+        }
+        timer=window.setTimeout(tf, 45);
+    }
+    //TODO: make unobtrusive?
+
+    window.onkeydown=function(evt){
+        if(game.lifes >= 0 ){
+            let keynum=evt.which;
+            keyspressed=keyspressed.replace(":"+keynum, "");
+            keyspressed+=":"+keynum; //simply pull
+        }else{
+            if (game.wait <=0){
+                game.hud.alert("")
+                game.newGame()
+            }
+        }
+    }
+    
+    window.onkeyup=function(evt){
+        let keynum=evt.which;
+        keyspressed=keyspressed.replace(":"+keynum, "");
+    }
+    
+    game.hud.alert("Flechas Izq, Der, Arr - dirigen la nave\nCtrl - dispara\nShift - escudo\nZ - freno\nMeta - teleport\n\npartida en pausa, presiona 'p' para continuar");
+    game.newGame();
+    game.paused=true;
+    tf();  
+});
+
+
+class Game {
+    constructor(){
+        this.wait=0;
+        this.bullets=new Array();
+        this.asteroids=new Array();
+        this.powerups=new Array();
+        this.powerupProbability=0.05;
+
+        this.board=document.createElementNS(svgns,"svg");
+        this.hud=document.createElementNS(svgns,"g");
+
+    }
+
+    addAsteroid(ax, ay, aa, ar){
+        let asteroid=document.createElementNS(svgns,"circle");
+        asteroid.radius=(ar?ar:40);
+        asteroid.ctx=(ax?ax:Math.random()*width);
+        asteroid.cty=(ay?ay:Math.random()*height);
+        asteroid.angle=(aa?aa:Math.random()*360);
+        asteroid.speed=Math.random()*10; //maxspeed=10
+        asteroid.setAttribute("r",asteroid.radius);
+        asteroid.setAttribute("style","position:relative;fill:#987;stroke:#000000;stroke-width:1px;");
+        asteroid.setAttribute("transform","translate("+asteroid.ctx+","+asteroid.cty+")");
+
+        let game=this
+        asteroid.move=function(){
+            this.ctx+=this.speed*Math.cos((this.angle)* (Math.PI/180));
+            this.cty+=this.speed*Math.sin((this.angle)* (Math.PI/180));
+            if (this.ctx<0)this.ctx+=width;
+            if (this.cty<0)this.cty+=height;
+            if (this.ctx>width)this.ctx-=width;
+            if (this.cty>height)this.cty-=height;
+            this.setAttribute("transform","translate("+this.ctx+","+this.cty+")");
+            if (game.ship.isVisible){
+                var distance=Math.sqrt(Math.pow((game.ship.ctx-this.ctx),2)+Math.pow((game.ship.cty-this.cty),2));
+                if (distance<(this.radius+game.ship.radius)){ //ship crash
+                    this.hit();
+                    if (game.ship.shield.enabled!=true){
+                        game.removeLife();
+                    }
+                }
+            }
+        }
+
+        asteroid.hit=function(){
+            this.radius*=.6;
+            game.powerUp(this.ctx,this.cty,this.angle, this.speed);
+            if (this.radius<10){
+                try{
+                    game.board.removeChild(this);
+                }catch(e){
+                    var z=null;
+                } //already removed
+                game.asteroids.splice(game.asteroids.indexOf(this),1);
+                if (game.asteroids.length==0){
+                    //txt.innerText="Level Cleared - acuracy : "+(this.bulletsHit/this.bulletsFired*100)+"%";
+                    setTimeout(()=> game.newLevel() , 2000);
+                }
+            }else{
+                this.setAttribute("r",this.radius);
+                var angle=this.angle;
+                this.angle=(angle+Math.random()*180)-90;
+                game.addAsteroid(this.ctx,this.cty,(angle+Math.random()*180)-90,this.radius);
+            }
+        }
+        game.board.insertBefore(asteroid,this.ship);
+        game.asteroids.push(asteroid);
+        return asteroid;
+    }
+
+    powerUp(ax,ay,angle,speed){
+        if (Math.random() < this.powerupProbability){
+            var item=Math.random();
+            var pup=null;
+            //TODO:fix probabilities
+            let game=this
+            if (item<.2){//life
+                pup=this.ship.chasis.cloneNode();
+                pup.setAttribute("style","fill:#000;stroke:none;fill-opacity:.3");
+                pup.life=100;//frames
+                pup.func=()=>this.addLife();
+            }else if (item<.6){//shield
+
+                pup=document.createElementNS(svgns,"circle");
+                pup.setAttribute("style","fill:#048;fill-opacity:.3;stroke:#048;stroke-width:2px;");
+                pup.setAttribute("r","20");
+                pup.func=function(){
+                    game.ship.shield.left+=40;
+                    game.hud.updateShield();
+                }
+                pup.life=150;//frames
+            }else{//teleport
+                pup=this.ship.chasis.cloneNode();
+                pup.setAttribute("style","fill:none;stroke:#000;stroke-width:2;stroke-opacity:.3");
+                pup.life=120;//frames
+                pup.func=()=>this.addTeleport();
+            }
+            pup.ctx=ax;
+            pup.cty=ay;
+            pup.angle=angle;
+            pup.speed=speed;
+            pup.radius=20;
+            pup.setAttribute("transform","translate("+pup.ctx+","+pup.cty+") rotate(270) scale(.75)");
+            pup.move=function(){
+                this.ctx+=this.speed*Math.cos((this.angle)* (Math.PI/180));
+                this.cty+=this.speed*Math.sin((this.angle)* (Math.PI/180));
+                if (this.ctx<0)this.ctx+=width;
+                if (this.cty<0)this.cty+=height;
+                if (this.ctx>width)this.ctx-=width;
+                if (this.cty>height)this.cty-=height;
+                this.setAttribute("transform","translate("+this.ctx+","+this.cty+") rotate(270) scale(.75)");
+                if (game.ship.isVisible){
+                    var distance=Math.sqrt(Math.pow((game.ship.ctx-this.ctx),2)+Math.pow((game.ship.cty-this.cty),2));
+                    if (distance<this.radius){
+                        this.life=0;
+                        this.func();
+                    }
+                }
+                this.life--;
+                if (this.life<=0){ //powerup decay
+                    try{
+                        game.board.removeChild(this);
+                    }catch(e){
+                        var z=null;
+                    } //already removed
+                    game.powerups.splice(game.powerups.indexOf(this),1);
+                }
+            }
+            game.powerups.push(pup);
+            this.board.insertBefore(pup,this.ship);
+        }
+    }
+
+    addLife(){
+        var littleShip=this.ship.chasis.cloneNode();
+        littleShip.setAttribute("class", "life-pup");
+        littleShip.setAttribute("transform","translate("+(width-20 -this.hud.lifes.length*40)+","+(height-20)+") rotate(270)");
+        this.hud.lifes.push(littleShip);
+        this.hud.appendChild(littleShip);
+        this.lifes++;
+    }
+    
+    removeLife(){
+        //TODO: animate death do explossion or something
+        this.ship.isVisible=false;
+        this.ship.setAttribute("style","fill-opacity:0;stroke-opacity:0");
+        if (--this.lifes){
+            var littleShip=this.hud.lifes.pop();
+            try{
+                this.hud.removeChild(littleShip);
+            }catch (e){}
+            window.setTimeout( () => this.startLife() , 2000);
+        }else{
+            var ac=this.bulletsHit/this.bulletsFired*100;
+            if (!ac) ac=0;
+            window.setTimeout(()=>this.hud.alert("Juego Terminado!\n\nNivel: "+this.level+"\nPrecisión: "+ ac.toFixed(2)+"%\n\nPresiona cualquier tecla para continuar") ,50*40)
+        }
+    }
+    
+    addTeleport(){
+        var tele=this.ship.chasis.cloneNode();
+        tele.setAttribute("style","fill:none;stroke:#000;stroke-width:2");
+        tele.setAttribute("transform","translate("+(20+this.hud.teleports.length*40)+","+(height-20)+") rotate(270)");
+        this.hud.teleports.push(tele);
+        this.hud.appendChild(tele);
+        this.ship.teleportsLeft++;
+    }
+    
+    useTeleport(){
+        this.ship.teleportsframesleft=this.ship.teleportsDelay;
+        this.ship.sx=0;
+        this.ship.sy=0;
+        this.ship.ctx=Math.random()*width;
+        this.ship.cty=Math.random()*height;
+        this.ship.angle=Math.round(Math.random()*23)*15;
+        var tele=this.hud.teleports.pop();
+        this.ship.shield.auto=5;
+        try{
+            this.hud.removeChild(tele);
+        }catch (e){
+            var z=null;
+        }
+        this.ship.teleportsLeft--;
+    }
+    
+    startLife(){
+        if(this.lifes >= 0){
+            this.paused=false;
+            this.ship.shield.auto=this.ship.shield.Max/2;
+            this.ship.shield.enabled=true;
+            this.ship.radius=40;
+            this.ship.ctx=width/2; //center x coord (pixels)
+            this.ship.cty=height/2; //center y coord (pixels)
+            this.ship.sx=0; //speed in x (pixels each frame)
+            this.ship.sy=0; //speed in y (pixels each frame)
+            this.ship.angle=270; //angle of the ship (plus 180 degrees)
+            this.ship.teleportsframesleft=0; 
+            this.ship.fireleft=0; //delay counter 0 or less means you can fire again
+            this.ship.setAttribute("style","fill-opacity:1;stroke-opacity:1");
+            this.ship.setAttribute("transform","translate("+this.ship.ctx+","+this.ship.cty+") rotate("+this.ship.angle+")");
+            this.ship.isVisible=true;
+        }
+    }
+    
+    newLevel(){
+        this.level++;
+        this.ship.shield.auto=5;
+        for (var i=0 ; i < this.level ; i++){
+            this.addAsteroid();
+        }
+    }
+    
+    newGame(){
+        this.bulletsFired=0;
+        this.bulletsHit=0;
+        this.lifes=0;
+        for (var i=0;i<2;i++){
+            this.addLife();
+        }
+        this.ship.teleportsLeft=0;//only trough powerups
+        this.ship.shield.left=0;//only trough powerups
+        this.hud.updateShield();
+        for (let a in this.asteroids){
+            this.board.removeChild(this.asteroids[a])
+        }
+        for (let p in this.powerups){
+            this.board.removeChild(this.powerups[p])
+        }        
+        this.asteroids=new Array();
+        this.powerups=new Array();
+        this.level=0;
+        this.newLevel();
+        this.startLife();
+    }
+    
 }
-
-
-
 

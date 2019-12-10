@@ -1,0 +1,16 @@
+.board{ background:#eef;}
+.asteroid{ fill:#987; stroke:#000; stroke-width:1px;}
+.life-pup{ fill:#000; stroke:none; fill-opacity:.3;}
+
+.bullet{stroke:#900;stroke-width:2px;}
+
+
+.hud{}/**************/
+.shieldPlace{fill:none;stroke:#000;stroke-width:2px;stroke-opacity:.3;}
+.shieldAmount{stroke:none;fill:#048;fill-opacity:.3;}
+
+
+.ship{}/***************/
+.chasis{ fill:#aaf; stroke:#000; stroke-width:1;}
+.cockpit{ fill:#bde; stroke:#000; stroke-width:1;}
+.shield{fill:#048;fill-opacity:.3;stroke:#048;stroke-width:1px;}
