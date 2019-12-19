@@ -35,14 +35,15 @@
  * fix teleports - KINDA DONE
  * make shield - KINDA DONE
  * make objects rolling appear on both sides while rolling - MAYBE NOT
- * 
+ * Touch support - WiP
+ * support css - WIP
  */
 
 // game constructor(){
 const svgns="http://www.w3.org/2000/svg";
 
-var width=800;
-var height=600;
+var width=853;
+var height=400;
 
 //TODO: recompute size 
 
@@ -57,21 +58,21 @@ var height=600;
 		return false; 
 	} 
 })(window, 'load', function(){
-    width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-    height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);    
-
+    
     var game=new Game();
     window.game=game
 
     var keyspressed="";
     
-    //TODO: make all the style css-able
+    // width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    // height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+
     game.board.setAttribute("class", "board")
-    game.board.setAttribute("style","width:"+width+"px;height:"+height+"px;");
-	document.body.appendChild(game.board);
+    game.board.setAttribute("style","width: auto; height: 100vh;");
+	 document.body.appendChild(game.board);
     game.ship = document.createElementNS(svgns,"g");
     
-    //todo: save resources to another file? - NOT LIKELY
+    //TODO: save svg resources to another file? - NOT LIKELY
     game.ship.chasis=document.createElementNS(svgns,"path");
     game.ship.chasis.setAttribute("d","m 15,0 -17,-10 2,-3 -15,-2 6,8 -3,7 3,7 -6,8 15,-2 -2,-3 z");
     game.ship.chasis.setAttribute("class","chasis");
@@ -81,13 +82,14 @@ var height=600;
     game.ship.shield=document.createElementNS(svgns,"circle");
     game.ship.shield.setAttribute("r",40);
     game.ship.shield.setAttribute("class", "shield");
+    
     game.ship.appendChild(game.ship.chasis);
     game.ship.appendChild(game.ship.cockpit);
     game.ship.appendChild(game.ship.shield);
 
     // window.ship=game.ship
     
-	game.board.appendChild(game.ship);
+	 game.board.appendChild(game.ship);
     game.board.appendChild(game.hud);
     
     game.hud.lifes=new Array();
@@ -109,14 +111,14 @@ var height=600;
     game.hud.appendChild(game.hud.shieldAmount);
     
     game.ship.shield.Max=100; //frames
-    game.ship.accel=0.24; 
+    game.ship.accel=0.25; 
     game.ship.teleportsDelay=3; 
     game.ship.isVisible=true;
     game.ship.radius=8;
     game.ship.firedelay=3; //in frames delay between 2 shots
     
-    var txt = document.createElement("div");
-    document.body.appendChild(txt);
+    // var txt = document.createElement("div");
+    // document.body.appendChild(txt);
     
     game.ship.fire=function(){
         if (game.ship.fireleft<=0 && game.ship.isVisible){
@@ -130,7 +132,7 @@ var height=600;
             bullet.cty=game.ship.cty;
             bullet.setAttribute("transform","translate("+bullet.ctx+","+bullet.cty+")");
             bullet.angle=game.ship.angle;
-            bullet.speed=20;
+            bullet.speed=19;
             bullet.life=Math.min(width,height)*.95/20;
             bullet.move=function(){
                 this.ctx+=this.speed*Math.cos((this.angle)* (Math.PI/180));
@@ -177,11 +179,10 @@ var height=600;
     }
     
     game.hud.alert=function(message, time){
-        if (message==""){
-            try{
-                game.hud.removeChild(game.hud.msg);
-            }catch(e){}
-        }else{
+        try{
+            game.hud.removeChild(game.hud.msg);
+        }catch(e){}
+        if (message){
             game.hud.msg=document.createElementNS(svgns,"g");
             game.hud.msg.rect=document.createElementNS(svgns,"rect");
             game.hud.msg.rect.setAttribute("style","fill:#000;fill-opacity:.7");
@@ -198,19 +199,21 @@ var height=600;
                 for (let i in mySplit){
                     let tspan=document.createElementNS(svgns,"tspan");
                     tspan.textContent=mySplit[i];
-                    game.hud.msg.text.appendChild(tspan);                    
-                    // let ww=tspan.offsetWidth;
+                    game.hud.msg.text.appendChild(tspan);
+                    //in 2019 offsetWidth is 0 until render
+                    //TODO: make dynamic
+                    // let ww=tspan.offsetWidth; 
                     // let hh=tspan.offsetHeight;
-                    var ww=350;
-                    var hh=15
+                    var ww=365;
+                    var hh=18;
                     tspan.setAttribute("y",hh*i-hh*mySplit.length/2+14);
                     tspan.setAttribute("x",ww/-2);
                 }
             }
             // var w = hud.msg.text.offsetWidth;
             // var h = hud.msg.text.offsetHeight;
-            var w=350;
-            var h=150;
+            var w=380;
+            var h=160;
 
             game.hud.msg.rect.setAttribute("x",w/-2-10);//and this
             game.hud.msg.rect.setAttribute("y",h/-2-5);
@@ -220,8 +223,8 @@ var height=600;
             game.hud.msg.text.setAttribute("y",h/2-5);
             
             game.hud.msg.setAttribute("transform","translate("+width/2+","+height/2+")");
-            if (time){ //I thoght it could be useful to have a timeout, now not so much
-                window.setTimeout("hud.alert('');", time);
+            if (typeof time === 'number'){
+                window.setTimeout(()=> game.hud.alert(''), time);
             }
         }
     }
@@ -240,7 +243,7 @@ var height=600;
             //general delays
             game.ship.fireleft--;
             game.ship.teleportsframesleft--;
-            if (game.wait>0) game.wait--;
+            if (game.wait >=0 )game.wait --;
             
             if (keyspressed.indexOf(":90")!= -1 ){ //z (auto brakes)
                 keyspressed=keyspressed.replace(":37x", "");//auto-left
@@ -285,7 +288,7 @@ var height=600;
                 game.ship.fire();
             }
             if (game.ship.shield.auto>=0){ //auto shield
-                game.ship.shield.auto--; //disabled for testing
+                game.ship.shield.auto--; 
                 game.ship.shield.enable(true);
             }else{
                 if (keyspressed.indexOf(":16")!= -1 && game.ship.shield.left>0 && game.ship.isVisible){ //shift (shield)
@@ -295,7 +298,7 @@ var height=600;
                     game.ship.shield.enable(false);
                 }
             }
-            if (keyspressed.indexOf(":91")!= -1 && game.ship.teleportsLeft>0 && game.ship.teleportsframesleft<0 ){ //super (aka windows logo) (teleport)
+            if (keyspressed.indexOf(":88")!= -1 && game.ship.teleportsLeft>0 && game.ship.teleportsframesleft<0 ){ // (teleport)
                 game.useTeleport();
             }
             if (keyspressed.indexOf(":80")!= -1 ){ //p (pause)
@@ -329,19 +332,20 @@ var height=600;
                 game.hud.alert("");
             }
         }
-        timer=window.setTimeout(tf, 45);
+        timer=window.setTimeout(tf, 55);
     }
-    //TODO: make unobtrusive?
 
     window.onkeydown=function(evt){
         if(game.lifes >= 0 ){
             let keynum=evt.which;
             keyspressed=keyspressed.replace(":"+keynum, "");
             keyspressed+=":"+keynum; //simply pull
+            //txt.innerHTML=keyspressed
         }else{
-            if (game.wait <=0){
+            if (game.newGameMsgVisible == true){
                 game.hud.alert("")
-                game.newGame()
+                game.newGameMsgVisible = false
+                game.start()
             }
         }
     }
@@ -350,11 +354,17 @@ var height=600;
         let keynum=evt.which;
         keyspressed=keyspressed.replace(":"+keynum, "");
     }
+
+    // window.onresize=function(evt){
+    //     width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    //     height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    //     game.board.setAttribute("style","width:"+width+"px;height:"+height+"px;");
+    // }
     
     game.hud.alert("Flechas Izq, Der, Arr - dirigen la nave\nCtrl - dispara\nShift - escudo\nZ - freno\nMeta - teleport\n\npartida en pausa, presiona 'p' para continuar");
-    game.newGame();
+    game.start();
     game.paused=true;
-    tf();  
+    tf();
 });
 
 
@@ -367,8 +377,16 @@ class Game {
         this.powerupProbability=0.05;
 
         this.board=document.createElementNS(svgns,"svg");
-        this.hud=document.createElementNS(svgns,"g");
+        this.board.setAttribute("viewBox", "0 0 853 400")
+        let square = document.createElementNS(svgns,"rect");
+        square.setAttribute("style","fill:none; stroke:#000; stroke-width:2;");
 
+        square.setAttribute("x",0);//and this
+        square.setAttribute("y",0);
+        square.setAttribute("width",1066);
+        square.setAttribute("height",600);
+        this.board.appendChild(square)
+        this.hud=document.createElementNS(svgns,"g");
     }
 
     addAsteroid(ax, ay, aa, ar){
@@ -504,16 +522,19 @@ class Game {
         //TODO: animate death do explossion or something
         this.ship.isVisible=false;
         this.ship.setAttribute("style","fill-opacity:0;stroke-opacity:0");
-        if (--this.lifes){
-            var littleShip=this.hud.lifes.pop();
+        if (--this.lifes >= 0){
+            const littleShip=this.hud.lifes.pop();
             try{
                 this.hud.removeChild(littleShip);
             }catch (e){}
             window.setTimeout( () => this.startLife() , 2000);
         }else{
-            var ac=this.bulletsHit/this.bulletsFired*100;
+            let ac=this.bulletsHit/this.bulletsFired*100;
             if (!ac) ac=0;
-            window.setTimeout(()=>this.hud.alert("Juego Terminado!\n\nNivel: "+this.level+"\nPrecisión: "+ ac.toFixed(2)+"%\n\nPresiona cualquier tecla para continuar") ,50*40)
+            window.setTimeout( () => {
+                this.hud.alert("Juego Terminado!\n\nNivel: "+this.level+"\nPrecisión: "+ ac.toFixed(2)+"%\n\nPresiona cualquier tecla para continuar")
+                this.newGameMsgVisible= true;
+            } , 2000)
         }
     }
     
@@ -570,7 +591,7 @@ class Game {
         }
     }
     
-    newGame(){
+    start(){
         this.bulletsFired=0;
         this.bulletsHit=0;
         this.lifes=0;
